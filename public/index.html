@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AAI: Honesty Mode</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --border: #2a2a2a;
+    --border-mid: #3a3a3a;
+    --text: #e8e6e0;
+    --muted: #888;
+    --accent: #c8b8ff;
+    --accent-dim: #3C3489;
+    --font-mono: 'Courier New', Courier, monospace;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem;
+  }
+
+  #container {
+    width: 100%;
+    max-width: 680px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #top-bar {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-mid);
+    margin-bottom: 20px;
+  }
+
+  #top-bar h1 {
+    font-size: 13px;
+    font-weight: normal;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+  }
+
+  #top-bar p {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+
+  #chat-screen {
+    display: flex;
+    flex-direction: column;
+    height: 80vh;
+  }
+
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding-right: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .msg {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  .msg .label {
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .msg.assistant .label { color: var(--accent); }
+  .msg.assistant { color: var(--text); }
+  .msg.user { color: #aaa; }
+  .msg.thinking .body { color: var(--muted); font-style: italic; }
+
+  #input-area {
+    padding-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  #user-input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border-mid);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    padding: 12px;
+    resize: none;
+    height: 96px;
+    outline: none;
+    line-height: 1.6;
+  }
+
+  #user-input:focus { border-color: var(--accent-dim); }
+  #user-input::placeholder { color: var(--muted); }
+
+  .btn-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .hint { font-size: 11px; color: var(--muted); }
+
+  button {
+    background: transparent;
+    border: 1px solid var(--border-mid);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    padding: 8px 18px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  button:hover { background: var(--surface); border-color: var(--accent-dim); }
+  button:disabled { opacity: 0.35; cursor: not-allowed; }
+  button.primary { border-color: var(--accent-dim); color: var(--accent); }
+  button.primary:hover { background: #1e1a3a; }
+</style>
+</head>
+<body>
+
+<div id="container">
+  <div id="top-bar">
+    <h1>AAI: HONESTY MODE ↗</h1>
+    <p>Autistic intelligence sees what others won't say. No masking. No softening. Just signal.</p>
+  </div>
+
+  <div id="chat-screen">
+    <div id="messages"></div>
+    <div id="input-area">
+      <textarea id="user-input" placeholder="Paste your writing, describe your idea, or ask for feedback on anything..."></textarea>
+      <div class="btn-row">
+        <span class="hint">Cmd+Enter to send</span>
+        <button id="send-btn" class="primary" onclick="sendMessage()">SEND →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SYSTEM = `You are a feedback assistant modeled on a high-functioning autistic communication style. Your core traits:
+
+COMMUNICATION STYLE:
+- Extremely direct. No softening, no "great question!", no "I can see what you were going for here." Skip all of that.
+- Literal and precise. If something is vague, say it's vague and why. Don't interpret charitably when the text doesn't earn it.
+- Pattern-focused. You notice structural problems, logical inconsistencies, repetition, and gaps. You flag them without apology.
+- No social cushioning. You don't lead with praise to soften criticism. If there's a real problem, you say so first.
+- You are not mean or cruel — you're accurate. There's a difference. You care about the work being good, not about how the person feels receiving the feedback.
+- Short sentences preferred. No flowery language. No rhetorical questions.
+
+FEEDBACK APPROACH:
+- Lead with the most important problem, not the least important.
+- Be specific. "This paragraph is confusing" is unhelpful. "This paragraph makes two contradictory claims in sentences 2 and 4" is useful.
+- If something is actually good, say so plainly. "This part works." Not "I love how you..."
+- Give concrete suggestions, not vague encouragement.
+- You will say things like: "This doesn't work because...", "The logic breaks here:", "You've used this word 4 times in 3 sentences.", "This is your actual argument. Your first two paragraphs aren't."
+- Do not add a summary paragraph at the end telling them how to feel about the feedback.
+
+You may be asked about writing, ideas, plans, arguments, presentations, code, emails — anything. Apply the same approach.`;
+
+let history = [];
+
+window.onload = () => {
+  addMessage('assistant', "Paste something you wrote. Or describe something you're working on. I'll tell you what's actually wrong with it.");
+};
+
+async function sendMessage() {
+  const input = document.getElementById('user-input');
+  const btn = document.getElementById('send-btn');
+  const text = input.value.trim();
+  if (!text) return;
+
+  addMessage('user', text);
+  history.push({ role: 'user', content: text });
+  input.value = '';
+  btn.disabled = true;
+
+  const thinking = addMessage('assistant thinking', 'thinking...');
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        system: SYSTEM,
+        messages: history
+      })
+    });
+
+    const data = await res.json();
+    const reply = data.content.map(b => b.text || '').join('');
+    thinking.remove();
+    addMessage('assistant', reply);
+    history.push({ role: 'assistant', content: reply });
+  } catch(e) {
+    thinking.querySelector('.body').textContent = 'Error: ' + e.message;
+    thinking.classList.remove('thinking');
+  }
+
+  btn.disabled = false;
+}
+
+function addMessage(role, text) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  const label = document.createElement('div');
+  label.className = 'label';
+  label.textContent = role === 'user' ? 'YOU' : 'DIRECT';
+  const body = document.createElement('div');
+  body.className = 'body';
+  body.textContent = text;
+  div.appendChild(label);
+  div.appendChild(body);
+  const msgs = document.getElementById('messages');
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+  return div;
+}
+
+document.getElementById('user-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) sendMessage();
+});
+</script>
+</body>
+</html>
